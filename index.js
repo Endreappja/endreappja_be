@@ -7,15 +7,16 @@ import { expressjwt as jwt } from "express-jwt";
 
 dotenv.config();
 
+const auth0Domain = process.env.AUTH0_DOMAIN;
 const checkJwt = jwt({
   secret: JwksRsa.expressJwtSecret({
     cache: true,
     rateLimit: true,
     jwksRequestsPerMinute: 5,
-    jwksUri: `https://dev-vu1jkz4wuxvj1unq.us.auth0.com/.well-known/jwks.json`
+    jwksUri: `https://${auth0Domain}/.well-known/jwks.json`
   }),
-  audience: 'https://endreapija.san/',
-  issuer: `https://dev-vu1jkz4wuxvj1unq.us.auth0.com/`,
+  audience: process.env.AUTH0_AUDIENCE,
+  issuer: `https://${auth0Domain}/`,
   algorithms: ['RS256']
 });
 
