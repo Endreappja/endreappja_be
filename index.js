@@ -7,13 +7,14 @@ import { expressjwt as jwt } from "express-jwt";
 import http from "http";
 import { Server } from "socket.io";
 import admin from "firebase-admin";
-import fs from "fs";
 
-// const serviceAccount = JSON.parse(fs.readFileSync("firebase-service-account.json", "utf8"));
-
-// admin.initializeApp({
-//   credential: admin.credential.cert(serviceAccount),
-// });
+admin.initializeApp({
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+  }),
+});
 
 dotenv.config();
 
@@ -155,8 +156,7 @@ app.post("/broadcast", checkJwt, async (req, res) => {
       },
       tokens: registrationTokens,
     };
-
-    const response = await admin.messaging().sendMulticast(message);
+    const response = await admin.messaging().sendEachForMulticast(message);
 
     res.json({
       successCount: response.successCount,
