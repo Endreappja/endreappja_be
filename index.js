@@ -6,6 +6,14 @@ import JwksRsa from "jwks-rsa";
 import { expressjwt as jwt } from "express-jwt";
 import http from "http";
 import { Server } from "socket.io";
+import admin from "firebase-admin";
+import fs from "fs";
+
+// const serviceAccount = JSON.parse(fs.readFileSync("firebase-service-account.json", "utf8"));
+
+// admin.initializeApp({
+//   credential: admin.credential.cert(serviceAccount),
+// });
 
 dotenv.config();
 
@@ -47,6 +55,7 @@ app.use(express.json());
 
 app.use("/todos", checkJwt);
 app.use("/register-token", checkJwt);
+app.use("/broadcast", checkJwt);
 
 // GET /todos
 app.get("/todos", async (req, res) => {
@@ -85,8 +94,6 @@ app.delete("/todos/:id", async (req, res) => {
   io.emit("todoDeleted", parseInt(id));
   res.json({ message: "Todo deleted" });
 });
-
-
 
 app.post("/register-token", checkJwt, async (req, res) => {
   console.log("/register-token")
@@ -128,6 +135,36 @@ app.post("/register-token", checkJwt, async (req, res) => {
   } catch (err) {
     console.error("❌ Error registering token:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/broadcast", checkJwt, async (req, res) => {
+  try {
+    const tokens = await prisma.fcmToken.findMany();
+    const registrationTokens = tokens.map(t => t.token);
+
+    if (registrationTokens.length === 0) {
+      return res.status(200).json({ message: "Nincsenek regisztrált kliensek" });
+    }
+
+    const now = new Date().toLocaleTimeString("hu-HU");
+    const message = {
+      notification: {
+        title: "⏰ Broadcast",
+        body: `Az idő most: ${now}`,
+      },
+      tokens: registrationTokens,
+    };
+
+    const response = await admin.messaging().sendMulticast(message);
+
+    res.json({
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+    });
+  } catch (err) {
+    console.error("Broadcast error:", err);
+    res.status(500).json({ error: "Broadcast failed" });
   }
 });
 
