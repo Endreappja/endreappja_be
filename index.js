@@ -156,6 +156,7 @@ app.post("/broadcast", checkJwt, async (req, res) => {
       },
       tokens: registrationTokens,
     };
+    console.log(message)
     const response = await admin.messaging().sendEachForMulticast(message);
 
     res.json({
