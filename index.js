@@ -4,6 +4,8 @@ import { PrismaClient } from "@prisma/client";
 import dotenv from "dotenv";
 import JwksRsa from "jwks-rsa";
 import { expressjwt as jwt } from "express-jwt";
+import http from "http";
+import { Server } from "socket.io";
 
 dotenv.config();
 
@@ -23,6 +25,23 @@ const checkJwt = jwt({
 const app = express();
 const prisma = new PrismaClient();
 
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_ORIGIN,
+    methods: ["GET", "POST"]
+  }
+  // cors: { origin: "*"}
+});
+
+io.on("connection", (socket) => {
+  console.log("⚡️ Kliens csatlakozott:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("❌ Kliens lecsatlakozott:", socket.id);
+  });
+});
+
 app.use(cors());
 app.use(express.json());
 
@@ -40,6 +59,7 @@ app.post("/todos", async (req, res) => {
   const newTodo = await prisma.todo.create({
     data: { title },
   });
+  io.emit("newTodo", newTodo);
   res.json(newTodo);
 });
 
@@ -51,6 +71,7 @@ app.put("/todos/:id", async (req, res) => {
     where: { id: parseInt(id) },
     data: { completed },
   });
+  io.emit("todoUpdated", updatedTodo);
   res.json(updatedTodo);
 });
 
@@ -60,10 +81,11 @@ app.delete("/todos/:id", async (req, res) => {
   await prisma.todo.delete({
     where: { id: parseInt(id) },
   });
+  io.emit("todoDeleted", parseInt(id));
   res.json({ message: "Todo deleted" });
 });
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
