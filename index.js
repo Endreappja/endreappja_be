@@ -150,11 +150,14 @@ app.post("/broadcast", checkJwt, async (req, res) => {
 
     const now = new Date().toLocaleTimeString("hu-HU");
     const message = {
-      notification: {
-        title: "⏰ Broadcast",
-        body: `Az idő most: ${now}`,
-      },
       tokens: registrationTokens,
+      webpush: {
+        notification: {
+          title: "⏰ Broadcast",
+          body: `Az idő most: ${now}`,
+          icon: "/icon.png"
+        }
+      }
     };
     console.log(message)
     const response = await admin.messaging().sendEachForMulticast(message);
