@@ -173,9 +173,9 @@ async function loadFcmTokens() {
   fcmTokens = tokens.map(t => ({ token: t.token, email: t.email }));
   console.log(`✅ FCM tokens loaded: ${fcmTokens.length}`);
 }
-loadFcmTokens();
 
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
+  await loadFcmTokens();
 });
