@@ -24,6 +24,7 @@ const checkJwt = jwt({
 
 const app = express();
 const prisma = new PrismaClient();
+let fcmTokens = [];
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -31,7 +32,6 @@ const io = new Server(server, {
     origin: process.env.CLIENT_ORIGIN,
     methods: ["GET", "POST"]
   }
-  // cors: { origin: "*"}
 });
 
 io.on("connection", (socket) => {
@@ -46,6 +46,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/todos", checkJwt);
+app.use("/register-token", checkJwt);
 
 // GET /todos
 app.get("/todos", async (req, res) => {
@@ -84,6 +85,58 @@ app.delete("/todos/:id", async (req, res) => {
   io.emit("todoDeleted", parseInt(id));
   res.json({ message: "Todo deleted" });
 });
+
+
+
+app.post("/register-token", checkJwt, async (req, res) => {
+  console.log("/register-token")
+  const { token } = req.body;
+  console.log(token)
+  if (!token) return res.status(400).json({ error: "Missing token" });
+
+  // JWT-ből kinyerjük az emailt
+  const email = req.auth && req.auth.email;
+  console.log(req.auth)
+  if (!email) return res.status(400).json({ error: "Email not found in JWT" });
+
+  try {
+    // DB-be írás/upsert
+    try {
+      await prisma.fcmToken.upsert({
+        where: { token },
+        update: { email },
+        create: { token, email }
+      });
+    } catch (err) {
+      if (err.code === "P2002") {
+        console.log("⚠️ Token already exists, skipping insert");
+      } else {
+        throw err;
+      }
+    }
+
+    // Memóriában is frissítjük
+    const exists = fcmTokens.find(t => t.token === token);
+    if (!exists) {
+      fcmTokens.push({ token, email });
+    } else {
+      exists.email = email;
+    }
+
+    console.log(`✅ Token registered/updated: ${token} (${email})`);
+    res.json({ message: "Token registered" });
+  } catch (err) {
+    console.error("❌ Error registering token:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+async function loadFcmTokens() {
+  const tokens = await prisma.fcmToken.findMany({ select: { token: true, email: true } });
+  fcmTokens = tokens.map(t => ({ token: t.token, email: t.email }));
+  console.log(`✅ FCM tokens loaded: ${fcmTokens.length}`);
+}
+loadFcmTokens();
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
