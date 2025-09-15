@@ -25,4 +25,5 @@ model FcmToken {
   token     String   @unique
   email     String
   createdAt DateTime @default(now())
+  env       String
 }

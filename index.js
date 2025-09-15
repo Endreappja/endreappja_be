@@ -112,8 +112,8 @@ app.post("/register-token", checkJwt, async (req, res) => {
     try {
       await prisma.fcmToken.upsert({
         where: { token },
-        update: { email },
-        create: { token, email }
+        update: { email, env: process.env.APP_ENV },
+        create: { token, email, env: process.env.APP_ENV }
       });
     } catch (err) {
       if (err.code === "P2002") {
@@ -141,16 +141,15 @@ app.post("/register-token", checkJwt, async (req, res) => {
 
 app.post("/broadcast", checkJwt, async (req, res) => {
   try {
-    const tokens = await prisma.fcmToken.findMany();
-    const registrationTokens = tokens.map(t => t.token);
-
-    if (registrationTokens.length === 0) {
+    const rows = await prisma.fcmToken.findMany({ where: { env: process.env.APP_ENV }, select: { token: true }});
+    const tokens = rows.map(r=>r.token);
+    if (tokens.length === 0) {
       return res.status(200).json({ message: "Nincsenek regisztrált kliensek" });
     }
 
     const now = new Date().toLocaleTimeString("hu-HU");
     const message = {
-      tokens: registrationTokens,
+      tokens,
       webpush: {
         notification: {
           title: "⏰ Broadcast",
@@ -173,7 +172,10 @@ app.post("/broadcast", checkJwt, async (req, res) => {
 });
 
 async function loadFcmTokens() {
-  const tokens = await prisma.fcmToken.findMany({ select: { token: true, email: true } });
+  const tokens = await prisma.fcmToken.findMany({
+    where: { env: process.env.APP_ENV }, 
+    select: { token: true, email: true } 
+  });
   fcmTokens = tokens.map(t => ({ token: t.token, email: t.email }));
   console.log(`✅ FCM tokens loaded: ${fcmTokens.length}`);
 }
